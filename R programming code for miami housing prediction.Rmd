@@ -1,0 +1,246 @@
+---
+title: "DAT7303_1_3_2331634"
+author: "Bamidele Omotosho"
+date: "2024-04-17"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+# Loading Library
+library(caret)
+library(e1071)
+library(rpart)
+library(randomForest)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(heatmaply)
+library(outliers)
+library(tidyr)
+
+getwd()
+setwd("c:\\temp\\project3")
+data <- read.csv("miami-housing.csv", header = TRUE)
+print(data)
+
+# Removing column 1, 2, and 15
+data <- data[, -c(1,2,15)]
+
+# Checking for Missing Values
+missing_values <- sum(is.na(data))
+cat("Missing values:",missing_values)
+
+str(data)
+View(data)
+
+# Performing Univariate
+# Creating a boxplot for the Sale Price variable
+boxplot(data$SALE_PRC, main = "Boxplot of Sale Price", ylab = "Sale Price")
+
+#  Creating a histogram for the "Sale Price" variable
+hist(data$SALE_PRC, main = "Histogram of Sale Price", xlab = "Sale Price")
+
+#  Creating a histogram for the "PARCELNO" variable
+hist(data$PARCELNO, main = "Histogram of PARCELNO", xlab = "PARCELNO")
+
+#  Creating a histogram for the "LND_SQFOOT" variable
+hist(data$LND_SQFOOT, main = "Histogram of LND_SQFOOT", xlab = "LND_SQFOOT")
+
+#  Creating a histogram for the "TOT_LVG_AREA" variable
+hist(data$TOT_LVG_AREA, main = "Histogram of TOT_LVG_AREA", xlab = "TOT_LVG_AREA")
+
+#  Creating a histogram for the "SPEC_FEAT_VAL" variable
+hist(data$SPEC_FEAT_VAL, main = "Histogram of SPEC_FEAT_VAL", xlab = "SPEC_FEAT_VAL")
+
+#  Creating a histogram for the "RAIL_DIST" variable
+hist(data$RAIL_DIST, main = "Histogram of RAIL_DIST", xlab = "RAIL_DIST")
+
+#  Creating a histogram for the "OCEAN_DIST" variable
+hist(data$OCEAN_DIST, main = "Histogram of OCEAN_DIST", xlab = "OCEAN_DIST")
+
+#  Creating a histogram for the "WATER_DIST" variable
+hist(data$WATER_DIST, main = "Histogram of WATER_DIST", xlab = "WATER_DIST")
+
+#  Creating a histogram for the "CNTR_DIST" variable
+hist(data$CNTR_DIST, main = "Histogram of CNTR_DIST", xlab = "CNTR_DIST")
+
+
+#  Creating a histogram for the "SUBCNTR_DI" variable
+hist(data$SUBCNTR_DI, main = "Histogram of SUBCNTR_DI", xlab = "SUBCNTR_DI")
+
+#  Creating a histogram for the "HWY_DIST" variable
+hist(data$HWY_DIST, main = "HWY_DIST", xlab = "HWY_DIST")
+
+#  Creating a histogram for the "age" variable
+hist(data$age, main = "age", xlab = "age")
+
+#  Creating a histogram for the "month_sold" variable
+hist(data$month_sold, main = "month_sold", xlab = "month_sold")
+
+#  Creating a histogram for the "structure_quality" variable
+hist(data$structure_quality, main = "structure_quality", xlab = "structure_quality")
+
+
+# Performing Univariate
+# Creating Scatterplot for Sale Price against Floor Area (Square Feet)
+plot(data$SALE_PRC, data$TOT_LVG_AREA, main = "Scatterplot of Sale Price against Floor Area (Square Feet)", xlab = "Sale Price", ylab = "Floor Area (Square Feet)")
+
+# Creating Scatterplot for Nearest Subcenter against Miami Central Business District
+plot(data$SUBCNTR_DI, data$CNTR_DIST, main = "Scatterplot of Nearest Subcenter against Miami Central Business District", xlab = "SUBCNTR_DI", ylab = "CNTR_DIST")
+
+# Creating Scatterplot for Special Features against Floor Area
+plot(data$SPEC_FEAT_VAL, data$TOT_LVG_AREA, main = "Scatterplot of Special Features against Floor Area", xlab = "SPEC_FEAT_VAL", ylab = "TOT_LVG_AREA")
+
+# Creating Scatterplot for Miami Central Business District against Nearest Body of Water
+plot(data$CNTR_DIST, data$WATER_DIST, main = "Scatterplot of Special Features against Floor Area", xlab = "CNTR_DIST", ylab = "WATER_DIST")
+
+# Creating Scatterplot for Age of the Structure against Miami Central Business District
+plot(data$age, data$CNTR_DIST, main = "Scatterplot of Special Features against Floor Area", xlab = "age", ylab = "CNTR_DIST")
+
+# Creating Correlation Matrix for Miami Housing Dataset
+correlation_matrix <- cor(data)
+correlation_df <- reshape2::melt(correlation_matrix)
+correlation_plot <- ggplot(correlation_df, aes(x = Var1, y = Var2)) +
+   geom_tile(aes(fill = value), color = "black") +
+   geom_text(aes(label = round(value, 2)), color = "black", size = 3) +
+   scale_fill_gradient2(low = "yellow", mid = "orange", high = "green", midpoint = 0,
+                        limits = c(-1, 1), name = "Correlation") +
+   labs(title = "Correlation Matrix Plot of Miami Housing", x = "", y = "") +
+   theme_minimal() +  
+   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+         axis.text.y = element_text(size = 8),
+         panel.grid = element_blank())
+print(correlation_plot)
+
+# Performing Multivariate 
+library(heatmaply)
+correlation_matrix <- cor(data)
+heatmaply(correlation_matrix, 
+          symm = TRUE,
+          scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(low = "yellow", mid = "orange", high = "green"),  # Customize color scale
+          layout_as_tree = TRUE,
+          main = "Correlation Heatmap of Miami Housing")
+
+
+
+# Setting the Data into Training (70) and Test (30) Set
+set.seed(123)
+sample_size <- floor(0.7 * nrow(data))
+train_index <- sample(seq_len(nrow(data)), size = sample_size)
+  
+train <- data[train_index, ]
+test <- data[-train_index, ]
+  
+summary(train)
+summary(test)
+  
+# Fitting the Model on the Training Data
+lm_model <- lm(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train)
+# viewing the Summary of the Model
+summary(lm_model)
+  
+# Making Predictions on the Testing Set
+lm_predictions <- predict(lm_model, newdata=test)
+  
+# Using Caret Package to Calculate Performance Metrics
+lm_performance <- postResample(pred = lm_predictions, obs = test$SALE_PRC)
+print(lm_performance)
+  
+# Implementing SVR Linear model
+svr_linear <- svm(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train, kernel="linear")
+# Predicting the Values for the Test
+svr_linear_predictions <- predict(svr_linear, newdata=test)
+# calculating the performance Metrics
+svr_performance <- postResample(pred = svr_linear_predictions, obs = test$SALE_PRC)
+print(svr_performance)
+
+  
+# Implementing SVR RBF model
+svr_rbf <- svm(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train, kernel="radial")
+# Predicting the Values for the Test
+svr_rbf_predictions <- predict(svr_rbf, newdata=test)
+# Calculating the Performance Metrics
+svr_performance <- postResample(pred = svr_rbf_predictions, obs = test$SALE_PRC)
+print(svr_performance)
+  
+  
+# Implementing SVR Poly Model
+svr_poly <- svm(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train, kernel="poly")
+# Predicting the Values for the Test
+svr_poly_predictions <- predict(svr_poly, newdata=test)
+# Calculating the Performance Metrics
+svr_performance <- postResample(pred = svr_poly_predictions, obs = test$SALE_PRC)
+print(svr_performance)
+  
+# Implementing Decision Tree Model
+dt_model <- rpart(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data = train)
+# Predicting Values for the Test Set
+dt_predictions <- predict(dt_model, newdata=test)
+# Calculating the Performance Metrics
+dt_performance <- postResample(pred = dt_predictions, obs = test$SALE_PRC)
+print(dt_performance)
+
+# Fitting Random Forest Model 100
+rf_model_n100 <- randomForest(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train, ntree=100)
+# Predicting Values for the Test
+rf_predictions_n100 <- predict(rf_model_n100, newdata=test)
+# Calculating the Error metrics RMSE
+rf_predictions_n100 <- postResample(pred = rf_predictions_n100, obs = test$SALE_PRC)
+print(rf_predictions_n100)
+
+# Fitting Random Forest Model 200
+rf_model_n200 <- randomForest(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train, ntree=200)
+# Predicting Values for the Test
+rf_predictions_n200 <- predict(rf_model_n200, newdata=test)
+# Calculating the Error metrics RMSE
+rf_predictions_n200 <- postResample(pred = rf_predictions_n200, obs = test$SALE_PRC)
+print(rf_predictions_n200)
+
+# Fitting Random Forest 500
+rf_model_n500 <- randomForest(SALE_PRC ~ PARCELNO + LND_SQFOOT + TOT_LVG_AREA + SPEC_FEAT_VAL + RAIL_DIST + OCEAN_DIST + WATER_DIST + CNTR_DIST + SUBCNTR_DI + HWY_DIST + age + month_sold + structure_quality, data=train, ntree=500)
+# Predicting Values for the Test
+rf_predictions_n500 <- predict(rf_model_n500, newdata=test)
+# Calculating the Error Metrics RMSE
+rf_predictions_n500 <- postResample(pred = rf_predictions_n500, obs = test$SALE_PRC)
+print(rf_predictions_n500)
+
+# For Root Mean Absolute Error
+models <- c(1.780714e+05, 2.011740e+05, 1.128481e+05, 1.207416e+05, 1.785767e+05, 1.033972e+05, 1.033299e+05, 1.036406e+05)
+  
+data <- data.frame(
+  Model = c("LM", "svr_linear", "svr_rbt", "svr_poly", "DT", "rf_n100", "rf_n200", "rf_n500"),
+  RMSE = models
+)
+  
+ggplot(data, aes(x = Model, y = RMSE)) +
+  geom_bar(stat = "identity", fill = "green") +
+  geom_text(aes(label = round(RMSE, 2)), vjust = -0.5, size = 3.5) + 
+  labs(title = "Root Mean Absolute Error",
+       x = "Models",
+       y = "RMSE")
+  
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
